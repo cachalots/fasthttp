@@ -56,6 +56,8 @@ type Request struct {
 	// Request timeout. Usually set by DoDeadline or DoTimeout
 	// if <= 0, means not set
 	timeout time.Duration
+
+	HandlingBodyManually bool
 }
 
 // Response represents HTTP response.
@@ -95,6 +97,8 @@ type Response struct {
 	raddr net.Addr
 	// Local TCPAddr from concurrently net.Conn
 	laddr net.Addr
+
+	manualBodyReader io.ReadCloser
 }
 
 // SetHost sets host for the request.
@@ -540,6 +544,7 @@ func (resp *Response) ResetBody() {
 			resp.body = nil
 		}
 	}
+	resp.manualBodyReader = nil
 }
 
 // SetBodyRaw sets response body, but without copying it.
@@ -728,6 +733,7 @@ func (req *Request) copyToSkipBody(dst *Request) {
 	req.postArgs.CopyTo(&dst.postArgs)
 	dst.parsedPostArgs = req.parsedPostArgs
 	dst.isTLS = req.isTLS
+	dst.HandlingBodyManually = req.HandlingBodyManually
 
 	// do not copy multipartForm - it will be automatically
 	// re-created on the first call to MultipartForm.
@@ -754,6 +760,7 @@ func (resp *Response) copyToSkipBody(dst *Response) {
 	dst.SkipBody = resp.SkipBody
 	dst.raddr = resp.raddr
 	dst.laddr = resp.laddr
+	dst.manualBodyReader = resp.manualBodyReader
 }
 
 func swapRequestBody(a, b *Request) {
@@ -1814,6 +1821,10 @@ func (req *Request) String() string {
 // Use Write instead of String for performance-critical code.
 func (resp *Response) String() string {
 	return getHTTPString(resp)
+}
+
+func (resp *Response) ManualBodyReader() io.ReadCloser {
+	return resp.manualBodyReader
 }
 
 func getHTTPString(hw httpWriter) string {
