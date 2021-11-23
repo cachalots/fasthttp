@@ -135,6 +135,8 @@ func ListenAndServeTLSEmbed(addr string, certData, keyData []byte, handler Reque
 // must be limited.
 type RequestHandler func(ctx *RequestCtx)
 
+type ResponseSentHandler func(ctx *RequestCtx, size int64)
+
 // ServeHandler must process tls.Config.NextProto negotiated requests.
 type ServeHandler func(c net.Conn) error
 
@@ -155,6 +157,8 @@ type Server struct {
 	// Take into account that no `panic` recovery is done by `fasthttp` (thus any `panic` will take down the entire server).
 	// Instead the user should use `recover` to handle these situations.
 	Handler RequestHandler
+
+	RespSentHandler ResponseSentHandler
 
 	// ErrorHandler for returning a response in case of an error while receiving or parsing the request.
 	//
@@ -2297,8 +2301,8 @@ func (s *Server) serveConn(c net.Conn) (err error) {
 		if !ctx.IsGet() && ctx.IsHead() {
 			ctx.Response.SkipBody = true
 		}
-		reqReset = true
-		ctx.Request.Reset()
+		//reqReset = true
+		//ctx.Request.Reset()
 
 		hijackHandler = ctx.hijackHandler
 		ctx.hijackHandler = nil
@@ -2341,7 +2345,10 @@ func (s *Server) serveConn(c net.Conn) (err error) {
 			if bw == nil {
 				bw = acquireWriter(ctx)
 			}
-			if err = writeResponse(ctx, bw); err != nil {
+			err = writeResponse(ctx, bw, s.RespSentHandler)
+			reqReset = true
+			ctx.Request.Reset()
+			if  err != nil {
 				break
 			}
 
@@ -2363,6 +2370,9 @@ func (s *Server) serveConn(c net.Conn) (err error) {
 				releaseWriter(s, bw)
 				bw = nil
 			}
+		}else{
+			reqReset = true
+			ctx.Request.Reset()
 		}
 
 		if hijackHandler != nil {
@@ -2499,11 +2509,14 @@ func (ctx *RequestCtx) LastTimeoutErrorResponse() *Response {
 	return ctx.timeoutResponse
 }
 
-func writeResponse(ctx *RequestCtx, w *bufio.Writer) error {
+func writeResponse(ctx *RequestCtx, w *bufio.Writer, sent ResponseSentHandler) error {
 	if ctx.timeoutResponse != nil {
 		panic("BUG: cannot write timed out response")
 	}
 	err := ctx.Response.Write(w)
+	if sent != nil {
+		sent(ctx, ctx.Response.written)
+	}
 	ctx.Response.Reset()
 	return err
 }
@@ -2789,7 +2802,7 @@ func (s *Server) writeErrorResponse(bw *bufio.Writer, ctx *RequestCtx, serverNam
 	if bw == nil {
 		bw = acquireWriter(ctx)
 	}
-	writeResponse(ctx, bw) //nolint:errcheck
+	writeResponse(ctx, bw, s.RespSentHandler) //nolint:errcheck
 	bw.Flush()
 	return bw
 }
