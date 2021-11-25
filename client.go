@@ -1438,9 +1438,17 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 		}
 	}
 
-	if (!req.Header.IsGet() && req.Header.IsHead()) || req.HandlingBodyManually {
+	if !req.Header.IsGet() && req.Header.IsHead() {
 		resp.SkipBody = true
 	}
+
+	handlingBodyManually := req.HandlingBodyManually
+	if resp.mustSkipBody() {
+		handlingBodyManually = false
+	} else if req.HandlingBodyManually {
+		resp.SkipBody = true
+	}
+
 	if c.DisableHeaderNamesNormalizing {
 		resp.Header.DisableNormalizing()
 	}
@@ -1455,7 +1463,7 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 	}
 
 	shouldClose := resetConnection || req.ConnectionClose() || resp.ConnectionClose()
-	if req.HandlingBodyManually {
+	if handlingBodyManually {
 		resp.manualBodyReader = c.manualBodyReadAccessor(br, cc, shouldClose)
 	} else {
 		c.releaseReader(br)
