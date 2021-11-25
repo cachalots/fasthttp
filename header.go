@@ -45,6 +45,8 @@ type ResponseHeader struct {
 	bufKV argsKV
 
 	cookies []argsKV
+
+	written int64
 }
 
 // RequestHeader represents HTTP request header.
@@ -1621,7 +1623,8 @@ func refreshServerDate() {
 
 // Write writes response header to w.
 func (h *ResponseHeader) Write(w *bufio.Writer) error {
-	_, err := w.Write(h.Header())
+	n, err := w.Write(h.Header())
+	h.written = int64(n)
 	return err
 }
 
