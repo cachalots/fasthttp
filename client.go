@@ -1462,6 +1462,10 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 		return retry, err
 	}
 
+	if resp.Header.mustSkipContentLength() {
+		handlingBodyManually = false
+	}
+
 	shouldClose := resetConnection || req.ConnectionClose() || resp.ConnectionClose()
 	if handlingBodyManually {
 		resp.manualBodyReader = c.manualBodyReadAccessor(br, cc, shouldClose)
