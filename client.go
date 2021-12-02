@@ -1443,6 +1443,7 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 	}
 
 	handlingBodyManually := req.HandlingBodyManually
+	customSkipBody = resp.SkipBody
 	if resp.mustSkipBody() {
 		handlingBodyManually = false
 	} else if req.HandlingBodyManually {
@@ -1459,6 +1460,7 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 		c.closeConn(cc)
 		// Don't retry in case of ErrBodyTooLarge since we will just get the same again.
 		retry := err != ErrBodyTooLarge
+		resp.SkipBody = customSkipBody
 		return retry, err
 	}
 
