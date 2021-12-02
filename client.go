@@ -1196,7 +1196,6 @@ func clientDoDeadline(req *Request, resp *Response, deadline time.Time, c client
 		// Not calling resp.copyToSkipBody(respCopy) here to avoid
 		// unexpected messing with headers
 		respCopy.SkipBody = resp.SkipBody
-		fmt.Printf("respCopy.SkipBody, resp.SkipBody: %v\n", resp.SkipBody)
 	}
 
 	// Note that the request continues execution on ErrTimeout until
